@@ -25,7 +25,6 @@ final class ConverterVisitor {
             visitUnboxer(methodVisitor, target);
             return;
         }
-        visitSafeCastConverter(methodVisitor, target);
         methodVisitor.visitTypeInsn(Opcodes.CHECKCAST, target.getInternalName());
     }
 
@@ -55,7 +54,7 @@ final class ConverterVisitor {
             case 'F' -> Type.getType(Float.class);
             case 'J' -> Type.getType(Long.class);
             case 'D' -> Type.getType(Double.class);
-            default -> throw new IllegalArgumentException();
+            default -> throw new IllegalArgumentException("Unexpected descriptor: " + primitiveType.getDescriptor());
         };
         convertTopPrimitive(methodVisitor, target);
     }
@@ -110,25 +109,6 @@ final class ConverterVisitor {
                 Type.getType(AutoBoxer.class).getInternalName(),
                 "box",
                 Type.getMethodDescriptor(target, primitiveCounter),
-                false
-        );
-    }
-
-    /**
-     * Visits convertor that safely casts to target type or return null if
-     * target class is not assignable from the class of object at the top
-     * of the stack.
-     *
-     * @param methodVisitor method visitor
-     * @param target target type
-     */
-    private static void visitSafeCastConverter(MethodVisitor methodVisitor, Type target) {
-        methodVisitor.visitLdcInsn(target);
-        methodVisitor.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                Type.getType(SafeCastConverter.class).getInternalName(),
-                "safeCast",
-                Type.getMethodDescriptor(Type.getType(Object.class), Type.getType(Object.class), Type.getType(Class.class)),
                 false
         );
     }

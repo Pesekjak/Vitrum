@@ -2,6 +2,12 @@ package me.pesekjak.vitrum;
 
 public class TestInstance {
 
+    public int number = 10;
+
+    public static final String staticString = "Hello World";
+
+    public double changeMe = 0;
+
     public int plusOne(Integer num) {
         return num + 1;
     }

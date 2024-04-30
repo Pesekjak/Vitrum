@@ -19,6 +19,7 @@ public @interface Target {
      * Is usually version identifier.
      *
      * @return version identifier
+     * @since 1.0.0
      */
     String handler();
 
@@ -28,6 +29,7 @@ public @interface Target {
      * For example: {@code foo/hello/world/Bar}
      *
      * @return method owner class
+     * @since 1.0.0
      */
     String source();
 
@@ -35,6 +37,7 @@ public @interface Target {
      * Name of the targeted method.
      *
      * @return method name
+     * @since 1.0.0
      */
     String name();
 
@@ -44,6 +47,7 @@ public @interface Target {
      * For example: {@code (ILjava/lang/Integer;D)F}
      *
      * @return descriptor of the method
+     * @since 1.0.0
      */
     String descriptor();
 
@@ -54,7 +58,62 @@ public @interface Target {
      * window interface method.
      *
      * @return whether the targeted method is static
+     * @since 1.0.0
      */
-    boolean isStatic();
+    boolean isStatic() default false;
+
+    /**
+     * Action performed by the window interface method.
+     *
+     * @return action
+     * @since 1.1.0
+     */
+    Action action() default Action.CALL_METHOD;
+
+    /**
+     * Represents what action should happen for the Target.
+     *
+     * @since 1.1.0
+     */
+    enum Action {
+
+        /**
+         * Calls the method of specified class with given name and descriptor
+         * and returns its value (or null if the method does not return any value).
+         * <p>
+         * Arguments given to the window interface method will be passed as arguments
+         * to the target method.
+         * <p>
+         * If the method call is static, {@link #isStatic()} has to be set to true,
+         * and then no instance is expected when calling the window interface method,
+         * otherwise it is expected to be not null.
+         */
+        CALL_METHOD,
+
+        /**
+         * Returns value of a public field of specified class with given name and
+         * descriptor.
+         * <p>
+         * Arguments given to the window interface method will be ignored.
+         * <p>
+         * If the field is static, {@link #isStatic()} has to be set to true,
+         * and then no instance is expected when calling the window interface method,
+         * otherwise it is expected to be not null.
+         */
+        GET_FIELD,
+
+        /**
+         * Changes value of a public field of specified class with given name and
+         * descriptor.
+         * <p>
+         * First argument given to the window interface method will be used as new value.
+         * <p>
+         * If the field is static, {@link #isStatic()} has to be set to true,
+         * and then no instance is expected when calling the window interface method,
+         * otherwise it is expected to be not null.
+         */
+        SET_FIELD
+
+    }
 
 }

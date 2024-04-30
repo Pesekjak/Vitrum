@@ -9,7 +9,7 @@ public class VitrumTest {
     public void testSimpleMethod() throws IllegalAccessException {
         TestInstance instance = new TestInstance();
         TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
-        window.foo(instance);
+        assert window.foo(instance) == null;
     }
 
     @Test
@@ -46,6 +46,28 @@ public class VitrumTest {
         TestInstance instance = new TestInstance();
         TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
         assert window.complex(instance, 1, 2, 3) == 1f;
+    }
+
+    @Test
+    public void testField() throws IllegalAccessException {
+        TestInstance instance = new TestInstance();
+        TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
+        assert window.numberField(instance) == 10;
+    }
+
+    @Test
+    public void testStaticField() throws IllegalAccessException {
+        TestInstance instance = new TestInstance();
+        TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
+        assert window.staticString(instance).equals("Hello World");
+    }
+
+    @Test
+    public void testSetField() throws IllegalAccessException {
+        TestInstance instance = new TestInstance();
+        TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
+        assert window.changeDouble(instance, 1) == 0;
+        assert instance.changeMe == 1;
     }
 
 }

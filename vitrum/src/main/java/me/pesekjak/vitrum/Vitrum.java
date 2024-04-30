@@ -31,6 +31,7 @@ public final class Vitrum {
      * @return window implementation
      * @param <T> window type
      * @throws IllegalAccessException if the class can not be defined
+     * @since 1.0.0
      */
     public static <T> T createWindow(Class<T> clazz, String handler) throws IllegalAccessException {
         if (!clazz.isInterface()) throw new IllegalArgumentException();
@@ -178,39 +179,68 @@ public final class Vitrum {
         }
 
         // targeted method
-        Type calledMethod = Type.getMethodType(target.descriptor());
+        Type targetType = target.action() == Target.Action.CALL_METHOD
+                ? Type.getMethodType(target.descriptor())
+                : Type.getType(target.descriptor());
 
         if (!target.isStatic()) {
             visitor.visitVarInsn(ALOAD, 1);
             visitor.visitTypeInsn(CHECKCAST, target.source());
         }
 
-        int index = 0;
-        for (Type param : calledMethod.getArgumentTypes()) {
+        if (target.action() == Target.Action.CALL_METHOD) {
+            int index = 0;
+            for (Type param : targetType.getArgumentTypes()) {
+                visitor.visitVarInsn(ALOAD, 2);
+                visitor.visitLdcInsn(index);
+                visitor.visitInsn(AALOAD);
+                ConverterVisitor.convertTopObject(visitor, param);
+                index++;
+            }
+
+            visitor.visitMethodInsn(
+                    target.isStatic() ? INVOKESTATIC : INVOKEVIRTUAL,
+                    target.source(),
+                    target.name(),
+                    target.descriptor(),
+                    false
+            );
+        } else if (target.action() == Target.Action.GET_FIELD) {
+            visitor.visitFieldInsn(
+                    target.isStatic() ? GETSTATIC : GETFIELD,
+                    target.source(),
+                    target.name(),
+                    target.descriptor()
+            );
+        } else {
             visitor.visitVarInsn(ALOAD, 2);
-            visitor.visitLdcInsn(index);
+            visitor.visitLdcInsn(0);
             visitor.visitInsn(AALOAD);
-            ConverterVisitor.convertTopObject(visitor, param);
-            index++;
+            ConverterVisitor.convertTopObject(visitor, targetType);
+            visitor.visitFieldInsn(
+                    target.isStatic() ? PUTSTATIC : PUTFIELD,
+                    target.source(),
+                    target.name(),
+                    target.descriptor()
+            );
         }
 
-        visitor.visitMethodInsn(
-                target.isStatic() ? INVOKESTATIC : INVOKEVIRTUAL,
-                target.source(),
-                target.name(),
-                target.descriptor(),
-                false
-        );
+        Type outputType = target.action() == Target.Action.CALL_METHOD
+                ? targetType.getReturnType()
+                : targetType;
 
         if (callingMethod.getReturnType() == Type.VOID_TYPE) {
             visitor.visitInsn(RETURN);
         } else {
 
-            if (calledMethod.getReturnType().equals(Type.VOID_TYPE))
+            if (outputType.equals(Type.VOID_TYPE) || target.action() == Target.Action.SET_FIELD)
                 visitor.visitInsn(ACONST_NULL);
 
-            if (ASMUtil.isPrimitive(calledMethod.getReturnType()) && !ASMUtil.isArray(calledMethod.getReturnType()))
-                ConverterVisitor.convertTopPrimitiveToObject(visitor, calledMethod.getReturnType());
+            if (target.action() != Target.Action.SET_FIELD
+                    && ASMUtil.isPrimitive(outputType)
+                    && !ASMUtil.isArray(outputType)
+                    && !outputType.equals(Type.VOID_TYPE))
+                ConverterVisitor.convertTopPrimitiveToObject(visitor, outputType);
 
             ConverterVisitor.convertTopObject(visitor, callingMethod.getReturnType());
             visitor.visitInsn(callingMethod.getReturnType().getOpcode(IRETURN));

@@ -18,27 +18,33 @@ final class Unboxer {
     }
 
     public static byte asByte(Object o) {
-        return (o instanceof Byte b) ? b : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.byteValue();
     }
 
     public static short asShort(Object o) {
-        return (o instanceof Short s) ? s : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.shortValue();
     }
 
     public static int asInt(Object o) {
-        return (o instanceof Integer i) ? i : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.intValue();
     }
 
     public static long asLong(Object o) {
-        return (o instanceof Long l) ? l : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.longValue();
     }
 
     public static float asFloat(Object o) {
-        return (o instanceof Float f) ? f : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.floatValue();
     }
 
     public static double asDouble(Object o) {
-        return (o instanceof Double d) ? d : 0;
+        if (!(o instanceof Number n)) return 0;
+        return n.doubleValue();
     }
 
 }
