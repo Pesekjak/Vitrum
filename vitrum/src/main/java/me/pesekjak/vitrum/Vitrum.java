@@ -54,7 +54,7 @@ public final class Vitrum {
             writeMethod(writer, method, handler);
         writer.visitEnd();
 
-        MethodHandles.privateLookupIn(clazz, MethodHandles.lookup()).defineClass(writer.toByteArray());
+        MethodHandles.privateLookupIn(Vitrum.class, MethodHandles.lookup()).defineClass(writer.toByteArray());
 
         instance = returnIfAvailable(clazz, handler);
 
