@@ -147,7 +147,7 @@ public final class Vitrum {
 
         Class<?>[] params = method.getParameterTypes();
         if (params.length != 2 || params[0] != Object.class || params[1] != Object[].class)
-            throw new RuntimeException("Illegal method");
+            throw new RuntimeException("Illegal method " + method.getName() + ", does not follow the 'Object, Object[]' arguments");
 
         // method of the window interface
         Type callingMethod = Type.getType(method);
@@ -178,56 +178,32 @@ public final class Vitrum {
             return;
         }
 
-        // targeted method
+        if (target.isStatic() && target.action() == Target.Action.CALL_CONSTRUCTOR)
+            throw new RuntimeException("Constructor in method " + method.getName() + " defined as static for " + handler + " handler");
+
+        if (!target.reflective()) {
+            writeNonReflectiveCode(target, visitor);
+        } else {
+            writeReflectiveCode(target, visitor);
+        }
+
         Type targetType = target.action() == Target.Action.CALL_METHOD
                 ? Type.getMethodType(target.descriptor())
                 : Type.getType(target.descriptor());
 
-        if (!target.isStatic()) {
-            visitor.visitVarInsn(ALOAD, 1);
-            visitor.visitTypeInsn(CHECKCAST, target.source());
-        }
-
-        if (target.action() == Target.Action.CALL_METHOD) {
-            int index = 0;
-            for (Type param : targetType.getArgumentTypes()) {
-                visitor.visitVarInsn(ALOAD, 2);
-                visitor.visitLdcInsn(index);
-                visitor.visitInsn(AALOAD);
-                ConverterVisitor.convertTopObject(visitor, param);
-                index++;
-            }
-
-            visitor.visitMethodInsn(
-                    target.isStatic() ? INVOKESTATIC : INVOKEVIRTUAL,
-                    target.source(),
-                    target.name(),
-                    target.descriptor(),
-                    false
-            );
-        } else if (target.action() == Target.Action.GET_FIELD) {
-            visitor.visitFieldInsn(
-                    target.isStatic() ? GETSTATIC : GETFIELD,
-                    target.source(),
-                    target.name(),
-                    target.descriptor()
-            );
-        } else {
-            visitor.visitVarInsn(ALOAD, 2);
-            visitor.visitLdcInsn(0);
-            visitor.visitInsn(AALOAD);
-            ConverterVisitor.convertTopObject(visitor, targetType);
-            visitor.visitFieldInsn(
-                    target.isStatic() ? PUTSTATIC : PUTFIELD,
-                    target.source(),
-                    target.name(),
-                    target.descriptor()
-            );
-        }
-
         Type outputType = target.action() == Target.Action.CALL_METHOD
                 ? targetType.getReturnType()
                 : targetType;
+
+        // constructor returns void, but on stack will be new instance
+        if (target.action() == Target.Action.CALL_CONSTRUCTOR)
+            outputType = Type.getType("L" + target.source() + ";");
+
+        // Changes return types to what ReflectionCaller util returns
+        if (target.reflective())
+            outputType = target.action() != Target.Action.SET_FIELD
+                    ? Type.getType(Object.class)
+                    : Type.VOID_TYPE;
 
         if (callingMethod.getReturnType() == Type.VOID_TYPE) {
             visitor.visitInsn(RETURN);
@@ -248,6 +224,172 @@ public final class Vitrum {
 
         visitor.visitMaxs(0, 0);
         visitor.visitEnd();
+    }
+
+    /**
+     * Writes the logic for the window methods that do not use
+     * reflective calls.
+     *
+     * @param target target instance
+     * @param visitor visitor
+     */
+    private static void writeNonReflectiveCode(Target target, MethodVisitor visitor) {
+        Type targetType = target.action() == Target.Action.CALL_METHOD
+                ? Type.getMethodType(target.descriptor())
+                : Type.getType(target.descriptor());
+
+        if (!target.isStatic() && target.action() != Target.Action.CALL_CONSTRUCTOR) {
+            visitor.visitVarInsn(ALOAD, 1);
+            visitor.visitTypeInsn(CHECKCAST, target.source());
+        }
+
+        switch (target.action()) {
+            case CALL_METHOD -> {
+                loadMethodArguments(visitor, targetType);
+                visitor.visitMethodInsn(
+                        target.isStatic() ? INVOKESTATIC : INVOKEVIRTUAL,
+                        target.source(),
+                        target.name(),
+                        target.descriptor(),
+                        false
+                );
+            }
+            case CALL_CONSTRUCTOR -> {
+                visitor.visitTypeInsn(NEW, target.source());
+                visitor.visitInsn(DUP);
+                loadMethodArguments(visitor, targetType);
+                visitor.visitMethodInsn(
+                        INVOKESPECIAL,
+                        target.source(),
+                        "<init>",
+                        target.descriptor(),
+                        false
+                );
+            }
+            case GET_FIELD -> visitor.visitFieldInsn(
+                    target.isStatic() ? GETSTATIC : GETFIELD,
+                    target.source(),
+                    target.name(),
+                    target.descriptor()
+            );
+            case SET_FIELD -> {
+                visitor.visitVarInsn(ALOAD, 2);
+                visitor.visitLdcInsn(0);
+                visitor.visitInsn(AALOAD);
+                ConverterVisitor.convertTopObject(visitor, targetType);
+                visitor.visitFieldInsn(
+                        target.isStatic() ? PUTSTATIC : PUTFIELD,
+                        target.source(),
+                        target.name(),
+                        target.descriptor()
+                );
+            }
+        }
+    }
+
+    /**
+     * Loads arguments from a method type to the stack.
+     *
+     * @param visitor visitor
+     * @param targetType method type
+     */
+    private static void loadMethodArguments(MethodVisitor visitor, Type targetType) {
+        int index = 0;
+        for (Type param : targetType.getArgumentTypes()) {
+            visitor.visitVarInsn(ALOAD, 2);
+            visitor.visitLdcInsn(index);
+            visitor.visitInsn(AALOAD);
+            ConverterVisitor.convertTopObject(visitor, param);
+            index++;
+        }
+    }
+
+    /**
+     * Writes the logic for the window methods that do use
+     * reflective calls.
+     *
+     * @param target target instance
+     * @param visitor visitor
+     */
+    private static void writeReflectiveCode(Target target, MethodVisitor visitor) {
+        switch (target.action()) {
+            case CALL_METHOD -> {
+                visitor.visitLdcInsn(target.source());
+                visitor.visitLdcInsn(target.name());
+                visitor.visitLdcInsn(target.descriptor());
+                visitor.visitVarInsn(ALOAD, 1);
+                visitor.visitVarInsn(ALOAD, 2);
+                visitor.visitMethodInsn(
+                        INVOKESTATIC,
+                        Type.getInternalName(ReflectionCaller.class),
+                        "callMethod",
+                        Type.getMethodDescriptor(
+                                Type.getType(Object.class),
+                                Type.getType(String.class),
+                                Type.getType(String.class),
+                                Type.getType(String.class),
+                                Type.getType(Object.class),
+                                Type.getType(Object[].class)
+                        ),
+                        false
+                );
+            }
+            case CALL_CONSTRUCTOR -> {
+                visitor.visitLdcInsn(target.source());
+                visitor.visitLdcInsn(target.descriptor());
+                visitor.visitVarInsn(ALOAD, 2);
+                visitor.visitMethodInsn(
+                        INVOKESTATIC,
+                        Type.getInternalName(ReflectionCaller.class),
+                        "callConstructor",
+                        Type.getMethodDescriptor(
+                                Type.getType(Object.class),
+                                Type.getType(String.class),
+                                Type.getType(String.class),
+                                Type.getType(Object[].class)
+                        ),
+                        false
+                );
+            }
+            case GET_FIELD -> {
+                visitor.visitLdcInsn(target.source());
+                visitor.visitLdcInsn(target.name());
+                visitor.visitVarInsn(ALOAD, 1);
+                visitor.visitMethodInsn(
+                        INVOKESTATIC,
+                        Type.getInternalName(ReflectionCaller.class),
+                        "getField",
+                        Type.getMethodDescriptor(
+                                Type.getType(Object.class),
+                                Type.getType(String.class),
+                                Type.getType(String.class),
+                                Type.getType(Object.class)
+                        ),
+                        false
+                );
+            }
+            case SET_FIELD -> {
+                visitor.visitLdcInsn(target.source());
+                visitor.visitLdcInsn(target.name());
+                visitor.visitVarInsn(ALOAD, 1);
+                visitor.visitVarInsn(ALOAD, 2);
+                visitor.visitLdcInsn(0);
+                visitor.visitInsn(AALOAD);
+                visitor.visitMethodInsn(
+                        INVOKESTATIC,
+                        Type.getInternalName(ReflectionCaller.class),
+                        "setField",
+                        Type.getMethodDescriptor(
+                                Type.VOID_TYPE,
+                                Type.getType(String.class),
+                                Type.getType(String.class),
+                                Type.getType(Object.class),
+                                Type.getType(Object.class)
+                        ),
+                        false
+                );
+            }
+        }
     }
 
     /**

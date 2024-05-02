@@ -2,6 +2,9 @@ package me.pesekjak.vitrum;
 
 public interface TestInterface {
 
+    @Target(handler = "v1", source = "me/pesekjak/vitrum/TestInstance", name = "<init>", descriptor = "(ILjava/lang/String;)V", action = Target.Action.CALL_CONSTRUCTOR)
+    TestInstance construct(Object instance, Object... arguments);
+
     @Target(handler = "v1", source = "me/pesekjak/vitrum/TestInstance", name = "plusOne", descriptor = "(Ljava/lang/Integer;)I")
     int plusOne(Object instance, Object... arguments);
 

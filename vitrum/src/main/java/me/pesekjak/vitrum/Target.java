@@ -63,6 +63,19 @@ public @interface Target {
     boolean isStatic() default false;
 
     /**
+     * Whether the handler should use reflection instead of casual way of accessing
+     * the class members.
+     * <p>
+     * Compare to casual way, this allows to access private class members, but can
+     * be slower.
+     * <p>
+     * If set to true, source class has to declare the specified class member.
+     *
+     * @return whether to use Java reflection API to access the class members
+     */
+    boolean reflective() default false;
+
+    /**
      * Action performed by the window interface method.
      *
      * @return action
@@ -89,6 +102,19 @@ public @interface Target {
          * otherwise it is expected to be not null.
          */
         CALL_METHOD,
+
+        /**
+         * Calls the constructor of specified class with given descriptor
+         * and returns new instance of the class.
+         * <p>
+         * Arguments given to the window interface method will be passed as arguments
+         * to the target method.
+         * <p>
+         * Method name is not required and can be left empty,
+         * but it is good practice to set it to {@code <init>}.
+         * Instance is expected to be null and method call can not be static.
+         */
+        CALL_CONSTRUCTOR,
 
         /**
          * Returns value of a public field of specified class with given name and

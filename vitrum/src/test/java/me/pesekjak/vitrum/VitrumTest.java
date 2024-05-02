@@ -70,4 +70,12 @@ public class VitrumTest {
         assert instance.changeMe == 1;
     }
 
+    @Test
+    public void testConstructor() throws IllegalAccessException {
+        TestInterface window = Vitrum.createWindow(TestInterface.class, "v1");
+        TestInstance instance = window.construct(null, 75, "Hello");
+        assert instance.number == 75;
+        assert instance.foo.equals("Hello");
+    }
+
 }

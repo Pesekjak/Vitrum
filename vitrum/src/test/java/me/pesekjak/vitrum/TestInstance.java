@@ -3,10 +3,20 @@ package me.pesekjak.vitrum;
 public class TestInstance {
 
     public int number = 10;
+    public String foo;
 
     public static final String staticString = "Hello World";
 
     public double changeMe = 0;
+
+    public TestInstance() {
+        foo = "bar";
+    }
+
+    public TestInstance(int number, String bar) {
+        this.number = number;
+        foo = bar;
+    }
 
     public int plusOne(Integer num) {
         return num + 1;
